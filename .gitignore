@@ -1,0 +1,9 @@
+.idea
+.Build
+Configuration/Mask
+ContentBlocks
+Resources/Public/Mask
+composer.lock
+var
+Resources/Private/Mask
+config

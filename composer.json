@@ -1,0 +1,39 @@
+{
+    "name": "nhovratov/mask-to-content-blocks",
+    "type": "typo3-cms-extension",
+    "description": "Migrate Mask Content Elements to Content Blocks",
+    "license": "GPL-2.0-or-later",
+    "autoload": {
+        "psr-4": {
+            "NH\\MaskToContentBlocks\\": "Classes/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Nikita Hovratov",
+            "email": "nikita.h@live.de"
+        }
+    ],
+    "require": {
+        "typo3/cms-core": "^13.4",
+        "mask/mask": "^9",
+        "friendsoftypo3/content-blocks": "^1.1"
+    },
+    "config": {
+        "allow-plugins": {
+            "typo3/cms-composer-installers": true,
+            "typo3/class-alias-loader": true
+        },
+        "vendor-dir": ".Build/vendor",
+        "bin-dir": ".Build/bin"
+    },
+    "extra": {
+        "typo3/cms": {
+            "web-dir": ".Build/public",
+            "extension-key": "mask_to_content_blocks"
+        }
+    },
+    "require-dev": {
+        "typo3/cms-install": "^13.4"
+    }
+}
