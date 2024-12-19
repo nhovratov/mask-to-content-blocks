@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace NH\MaskToContentBlocks\Command;
 
+use MASK\Mask\Definition\ElementTcaDefinition;
+use MASK\Mask\Definition\TableDefinition;
 use MASK\Mask\Definition\TableDefinitionCollection;
+use MASK\Mask\Enumeration\FieldType;
 use MASK\Mask\Imaging\PreviewIconResolver;
 use MASK\Mask\Utility\AffixUtility;
 use MASK\Mask\Utility\TemplatePathUtility;
@@ -49,6 +52,10 @@ class MaskToContentBlocksCommand extends Command
         }
         $contentElementTableDefinition = $this->tableDefinitionCollection->getTable($table);
         foreach ($contentElementTableDefinition->elements ?? [] as $element) {
+            if ($element->hidden) {
+                continue;
+            }
+            $fieldArray = $this->traverseMaskColumnsRecursive($element->key, $element->columns, $contentElementTableDefinition);
             $contentBlockName = str_replace('_', '-', $element->key);
             $name = 'mask/' . $contentBlockName;
             $path = 'EXT:' . $targetExtension . '/' . ContentBlockPathUtility::getRelativeContentElementsPath();
@@ -57,8 +64,10 @@ class MaskToContentBlocksCommand extends Command
                 'table' => $table,
                 'typeField' => ContentType::CONTENT_ELEMENT->getTypeField(),
                 'typeName' => AffixUtility::addMaskCTypePrefix($element->key),
+                'prefixFields' => false,
                 'title' => $element->label,
                 'description' => $element->description,
+                'fields' => $fieldArray,
             ];
             $contentBlock = new LoadedContentBlock(
                 $name,
@@ -129,5 +138,73 @@ class MaskToContentBlocksCommand extends Command
         if (file_exists($absolutePreviewIconPath)) {
             copy($absolutePreviewIconPath, $absoluteIconPath . '.' . $fileExtension);
         }
+    }
+
+    protected function traverseMaskColumnsRecursive(string $elementKey, array $columns, TableDefinition $tableDefinition): array
+    {
+        $fieldArray = [];
+        foreach ($columns as $fieldKey) {
+            $field = [];
+            $tcaFieldDefinition = $tableDefinition->tca->getField($fieldKey);
+            $tca = $tcaFieldDefinition->realTca['config'] ?? [];
+            unset($tca['type']);
+            try {
+                $fieldType = $this->tableDefinitionCollection->getFieldType($fieldKey, $tableDefinition->table);
+            } catch (\InvalidArgumentException) {
+                $fieldType = FieldType::STRING;
+            }
+            $contentBlockFieldType = match ($fieldType) {
+                FieldType::STRING => 'Text',
+                FieldType::INTEGER, FieldType::FLOAT => 'Number',
+                FieldType::LINK => 'Link',
+                FieldType::DATE, FieldType::TIMESTAMP, FieldType::DATETIME => 'DateTime',
+                FieldType::TEXT, FieldType::RICHTEXT => 'Textarea',
+                FieldType::CHECK => 'Checkbox',
+                FieldType::RADIO => 'Radio',
+                FieldType::SELECT => 'Select',
+                FieldType::EMAIL => 'Email',
+                FieldType::CATEGORY => 'Category',
+                FieldType::FILE, FieldType::MEDIA => 'File',
+                FieldType::COLORPICKER => 'Color',
+                FieldType::FOLDER => 'Folder',
+                FieldType::SLUG => 'Slug',
+                FieldType::GROUP => 'Relation',
+                FieldType::CONTENT, FieldType::INLINE => 'Collection',
+                FieldType::TAB => 'Tab',
+                FieldType::LINEBREAK => 'Linebreak',
+                FieldType::PALETTE => 'Palette',
+            };
+            $field['type'] = $contentBlockFieldType;
+            if ($fieldType !== FieldType::LINEBREAK) {
+                $field['identifier'] = $fieldKey;
+            }
+            if ($tcaFieldDefinition->isCoreField) {
+                $field['useExistingField'] = true;
+            }
+            if (($label = $this->tableDefinitionCollection->getLabel($elementKey, $fieldKey, $tableDefinition->table)) !== '') {
+                $field['label'] = $label;
+            }
+            if (($description = $this->tableDefinitionCollection->getDescription($elementKey, $fieldKey, $tableDefinition->table)) !== '') {
+                $field['description'] = $description;
+            }
+            $field = array_merge($field, $tca);
+            if ($fieldType->isParentField()) {
+                $elementTcaDefinition = $this->tableDefinitionCollection->loadElement($tableDefinition->table, $elementKey);
+                $element = $elementTcaDefinition instanceof ElementTcaDefinition
+                    ? $elementTcaDefinition->elementDefinition
+                    : null;
+                $inlineFields = $this->tableDefinitionCollection->loadInlineFields($fieldKey, $elementKey, $element);
+                $inlineColumns = array_map(fn (array $tcaField) => $tcaField['fullKey'], $inlineFields->toArray());
+                $foreignTableDefinition = $tableDefinition;
+                if ($fieldType === FieldType::INLINE) {
+                    unset($field['foreign_table']);
+                    unset($field['foreign_table_field']);
+                    $foreignTableDefinition = $this->tableDefinitionCollection->getTable($fieldKey);
+                }
+                $field['fields'] = $this->traverseMaskColumnsRecursive($elementKey, $inlineColumns, $foreignTableDefinition);
+            }
+            $fieldArray[] = $field;
+        }
+        return $fieldArray;
     }
 }
