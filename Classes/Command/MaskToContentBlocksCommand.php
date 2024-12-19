@@ -153,6 +153,9 @@ class MaskToContentBlocksCommand extends Command
             } catch (\InvalidArgumentException) {
                 $fieldType = FieldType::STRING;
             }
+            if (($fieldType === FieldType::SELECT || $fieldType === FieldType::CHECK) && ($tca['items'] ?? []) === []) {
+                unset($tca['items']);
+            }
             $contentBlockFieldType = match ($fieldType) {
                 FieldType::STRING => 'Text',
                 FieldType::INTEGER, FieldType::FLOAT => 'Number',
