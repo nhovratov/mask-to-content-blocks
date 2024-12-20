@@ -204,6 +204,24 @@ class MaskToContentBlocksCommand extends Command
             if (($fieldType === FieldType::SELECT || $fieldType === FieldType::CHECK) && ($tca['items'] ?? []) === []) {
                 unset($field['items']);
             }
+            // Defaults
+            if ($fieldType === FieldType::FILE && ($field['allowed'] ?? '') === '') {
+                $field['allowed'] = 'common-image-types';
+            }
+            if ($fieldType === FieldType::MEDIA && ($field['allowed'] ?? '') === '') {
+                $field['allowed'] = 'common-media-types';
+            }
+            if ($fieldType === FieldType::CONTENT) {
+                $field['foreign_field'] = 'tx_mask_content_parent_uid';
+                $field['foreign_table_field'] = 'tx_mask_content_tablenames';
+                $field['foreign_match_fields'] = [
+                    'tx_mask_content_role' => $fieldKey,
+                ];
+                if (!empty($tcaFieldDefinition->cTypes)) {
+                    $field['overrideChildTca']['columns']['CType']['config']['default'] = reset($tcaFieldDefinition->cTypes);
+                }
+                unset($field['overrideChildTca']['columns']['colPos']);
+            }
             if ($fieldType->isParentField()) {
                 $inlineFields = $this->tableDefinitionCollection->loadInlineFields($fieldKey, $element->key, $element);
                 $inlineColumns = array_map(fn (array $tcaField) => $tcaField['fullKey'], $inlineFields->toArray());
