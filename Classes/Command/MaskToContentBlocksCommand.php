@@ -37,6 +37,9 @@ class MaskToContentBlocksCommand extends Command
         protected TableDefinitionCollection $tableDefinitionCollection,
         protected PreviewIconResolver $previewIconResolver,
         protected ContentBlockBuilder $contentBlockBuilder,
+        /**
+         * @var array{content?: string, backend?: string}
+         */
         protected array $maskExtensionConfiguration,
     ) {
         parent::__construct();
@@ -44,7 +47,7 @@ class MaskToContentBlocksCommand extends Command
 
     public function execute(InputInterface $input, OutputInterface $output): int
     {
-        $table = ContentType::CONTENT_ELEMENT->getTable();
+        $table = 'tt_content';
         $targetExtension = $this->extractExtensionFromMaskConfiguration();
         if (!$this->tableDefinitionCollection->hasTable($table)) {
             $output->writeln('No Mask elements found.');
@@ -55,7 +58,9 @@ class MaskToContentBlocksCommand extends Command
             if ($element->hidden) {
                 continue;
             }
-            $fieldArray = $this->traverseMaskColumnsRecursive($element, $element->columns, $contentElementTableDefinition);
+            /** @var string[] $columns */
+            $columns = $element->columns;
+            $fieldArray = $this->traverseMaskColumnsRecursive($element, $columns, $contentElementTableDefinition);
             $contentBlockName = str_replace('_', '-', $element->key);
             $name = 'mask/' . $contentBlockName;
             $path = 'EXT:' . $targetExtension . '/' . ContentBlockPathUtility::getRelativeContentElementsPath();
@@ -102,7 +107,7 @@ class MaskToContentBlocksCommand extends Command
         return $extensionKey;
     }
 
-    protected function copyFrontendTemplate(string $contentElementKey, $targetExtPath): void
+    protected function copyFrontendTemplate(string $contentElementKey, string $targetExtPath): void
     {
         $absolutePath = GeneralUtility::getFileAbsFileName($targetExtPath);
         $absoluteTemplatePath = $absolutePath . '/' . ContentBlockPathUtility::getFrontendTemplatePath();
@@ -112,22 +117,23 @@ class MaskToContentBlocksCommand extends Command
         }
     }
 
-    protected function copyPreviewTemplate(string $contentElementKey, $targetExtPath): void
+    protected function copyPreviewTemplate(string $contentElementKey, string $targetExtPath): void
     {
         $absolutePath = GeneralUtility::getFileAbsFileName($targetExtPath);
         $absoluteTemplatePath = $absolutePath . '/' . ContentBlockPathUtility::getBackendPreviewPath();
+        $backendPreviewTemplatePath = (string)($this->maskExtensionConfiguration['backend'] ?? '');
         $maskPreviewTemplate = TemplatePathUtility::getTemplatePath(
             $this->maskExtensionConfiguration,
             $contentElementKey,
             false,
-            GeneralUtility::getFileAbsFileName($this->maskExtensionConfiguration['backend'] ?? '')
+            GeneralUtility::getFileAbsFileName($backendPreviewTemplatePath)
         );
         if (file_exists($maskPreviewTemplate)) {
             copy($maskPreviewTemplate, $absoluteTemplatePath);
         }
     }
 
-    protected function copyIcon(string $contentElementKey, $targetExtPath): void
+    protected function copyIcon(string $contentElementKey, string $targetExtPath): void
     {
         $absolutePath = GeneralUtility::getFileAbsFileName($targetExtPath);
         $absoluteIconPath = $absolutePath . '/' . ContentBlockPathUtility::getIconPathWithoutFileExtension();
@@ -144,12 +150,20 @@ class MaskToContentBlocksCommand extends Command
         }
     }
 
+    /**
+     * @param string[] $columns
+     * @return array<array<string, mixed>>
+     */
     protected function traverseMaskColumnsRecursive(ElementDefinition $element, array $columns, TableDefinition $tableDefinition): array
     {
         $fieldArray = [];
+        if ($tableDefinition->tca === null) {
+            return $fieldArray;
+        }
         foreach ($columns as $fieldKey) {
             $field = [];
             $tcaFieldDefinition = $tableDefinition->tca->getField($fieldKey);
+            /** @var array<string, mixed> $tca */
             $tca = $tcaFieldDefinition->realTca['config'] ?? [];
             unset($tca['type']);
             try {
@@ -194,6 +208,7 @@ class MaskToContentBlocksCommand extends Command
             $columnsOverrides = [];
             if ($element->hasColumnsOverride($fieldKey)) {
                 $columnsOverrideTcaDefinition = $element->getColumnsOverride($fieldKey);
+                /** @var array<string, mixed> $columnsOverrides */
                 $columnsOverrides = $columnsOverrideTcaDefinition->realTca['config'] ?? [];
             }
             $field = array_merge($field, $tca, $columnsOverrides);
@@ -227,7 +242,9 @@ class MaskToContentBlocksCommand extends Command
             }
             if ($fieldType->isParentField()) {
                 $inlineFields = $this->tableDefinitionCollection->loadInlineFields($fieldKey, $element->key, $element);
-                $inlineColumns = array_map(fn (array $tcaField) => $tcaField['fullKey'], $inlineFields->toArray());
+                /** @var array<array{fullKey: string}> $array */
+                $array = $inlineFields->toArray();
+                $inlineColumns = array_map(fn (array $tcaField): string => $tcaField['fullKey'], $array);
                 $foreignTableDefinition = $tableDefinition;
                 if ($fieldType === FieldType::INLINE) {
                     unset($field['foreign_table']);
