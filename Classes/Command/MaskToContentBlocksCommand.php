@@ -191,6 +191,9 @@ class MaskToContentBlocksCommand extends Command
                 $field['description'] = $description;
             }
             $field = array_merge($field, $tca);
+            if (($field['nullable'] ?? null) === 0) {
+                unset($field['nullable']);
+            }
             if ($fieldType->isParentField()) {
                 $elementTcaDefinition = $this->tableDefinitionCollection->loadElement($tableDefinition->table, $elementKey);
                 $element = $elementTcaDefinition instanceof ElementTcaDefinition
