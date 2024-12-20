@@ -222,6 +222,9 @@ class MaskToContentBlocksCommand extends Command
                 }
                 unset($field['overrideChildTca']['columns']['colPos']);
             }
+            if ($fieldType === FieldType::TEXT && ($field['format'] ?? false)) {
+                $field['renderType'] = 't3editor';
+            }
             if ($fieldType->isParentField()) {
                 $inlineFields = $this->tableDefinitionCollection->loadInlineFields($fieldKey, $element->key, $element);
                 $inlineColumns = array_map(fn (array $tcaField) => $tcaField['fullKey'], $inlineFields->toArray());
