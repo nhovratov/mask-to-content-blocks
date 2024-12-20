@@ -67,6 +67,10 @@ class MaskToContentBlocksCommand extends Command
                 'prefixFields' => false,
                 'title' => $element->label,
                 'description' => $element->description,
+                'basics' => [
+                    'TYPO3/Appearance',
+                    'TYPO3/Links',
+                ],
                 'fields' => $fieldArray,
             ];
             $contentBlock = new LoadedContentBlock(
