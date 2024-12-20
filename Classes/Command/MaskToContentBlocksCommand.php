@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NH\MaskToContentBlocks\Command;
 
-use MASK\Mask\Definition\ElementTcaDefinition;
+use MASK\Mask\Definition\ElementDefinition;
 use MASK\Mask\Definition\TableDefinition;
 use MASK\Mask\Definition\TableDefinitionCollection;
 use MASK\Mask\Enumeration\FieldType;
@@ -55,7 +55,7 @@ class MaskToContentBlocksCommand extends Command
             if ($element->hidden) {
                 continue;
             }
-            $fieldArray = $this->traverseMaskColumnsRecursive($element->key, $element->columns, $contentElementTableDefinition);
+            $fieldArray = $this->traverseMaskColumnsRecursive($element, $element->columns, $contentElementTableDefinition);
             $contentBlockName = str_replace('_', '-', $element->key);
             $name = 'mask/' . $contentBlockName;
             $path = 'EXT:' . $targetExtension . '/' . ContentBlockPathUtility::getRelativeContentElementsPath();
@@ -140,7 +140,7 @@ class MaskToContentBlocksCommand extends Command
         }
     }
 
-    protected function traverseMaskColumnsRecursive(string $elementKey, array $columns, TableDefinition $tableDefinition): array
+    protected function traverseMaskColumnsRecursive(ElementDefinition $element, array $columns, TableDefinition $tableDefinition): array
     {
         $fieldArray = [];
         foreach ($columns as $fieldKey) {
@@ -152,9 +152,6 @@ class MaskToContentBlocksCommand extends Command
                 $fieldType = $this->tableDefinitionCollection->getFieldType($fieldKey, $tableDefinition->table);
             } catch (\InvalidArgumentException) {
                 $fieldType = FieldType::STRING;
-            }
-            if (($fieldType === FieldType::SELECT || $fieldType === FieldType::CHECK) && ($tca['items'] ?? []) === []) {
-                unset($tca['items']);
             }
             $contentBlockFieldType = match ($fieldType) {
                 FieldType::STRING => 'Text',
@@ -184,22 +181,27 @@ class MaskToContentBlocksCommand extends Command
             if ($tcaFieldDefinition->isCoreField) {
                 $field['useExistingField'] = true;
             }
-            if (($label = $this->tableDefinitionCollection->getLabel($elementKey, $fieldKey, $tableDefinition->table)) !== '') {
+            if (($label = $this->tableDefinitionCollection->getLabel($element->key, $fieldKey, $tableDefinition->table)) !== '') {
                 $field['label'] = $label;
             }
-            if (($description = $this->tableDefinitionCollection->getDescription($elementKey, $fieldKey, $tableDefinition->table)) !== '') {
+            if (($description = $this->tableDefinitionCollection->getDescription($element->key, $fieldKey, $tableDefinition->table)) !== '') {
                 $field['description'] = $description;
             }
-            $field = array_merge($field, $tca);
+            $columnsOverrides = [];
+            if ($element->hasColumnsOverride($fieldKey)) {
+                $columnsOverrideTcaDefinition = $element->getColumnsOverride($fieldKey);
+                $columnsOverrides = $columnsOverrideTcaDefinition->realTca['config'] ?? [];
+            }
+            $field = array_merge($field, $tca, $columnsOverrides);
+            // Cleanup
             if (($field['nullable'] ?? null) === 0) {
                 unset($field['nullable']);
             }
+            if (($fieldType === FieldType::SELECT || $fieldType === FieldType::CHECK) && ($tca['items'] ?? []) === []) {
+                unset($tca['items']);
+            }
             if ($fieldType->isParentField()) {
-                $elementTcaDefinition = $this->tableDefinitionCollection->loadElement($tableDefinition->table, $elementKey);
-                $element = $elementTcaDefinition instanceof ElementTcaDefinition
-                    ? $elementTcaDefinition->elementDefinition
-                    : null;
-                $inlineFields = $this->tableDefinitionCollection->loadInlineFields($fieldKey, $elementKey, $element);
+                $inlineFields = $this->tableDefinitionCollection->loadInlineFields($fieldKey, $element->key, $element);
                 $inlineColumns = array_map(fn (array $tcaField) => $tcaField['fullKey'], $inlineFields->toArray());
                 $foreignTableDefinition = $tableDefinition;
                 if ($fieldType === FieldType::INLINE) {
@@ -207,7 +209,7 @@ class MaskToContentBlocksCommand extends Command
                     unset($field['foreign_table_field']);
                     $foreignTableDefinition = $this->tableDefinitionCollection->getTable($fieldKey);
                 }
-                $field['fields'] = $this->traverseMaskColumnsRecursive($elementKey, $inlineColumns, $foreignTableDefinition);
+                $field['fields'] = $this->traverseMaskColumnsRecursive($element, $inlineColumns, $foreignTableDefinition);
             }
             $fieldArray[] = $field;
         }
