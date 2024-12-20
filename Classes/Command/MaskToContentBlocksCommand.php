@@ -201,7 +201,7 @@ class MaskToContentBlocksCommand extends Command
             if (($field['nullable'] ?? null) === 0) {
                 unset($field['nullable']);
             }
-            if (($fieldType === FieldType::SELECT || $fieldType === FieldType::CHECK) && ($tca['items'] ?? []) === []) {
+            if (($fieldType === FieldType::SELECT || $fieldType === FieldType::CHECK) && ($field['items'] ?? []) === []) {
                 unset($field['items']);
             }
             // Defaults
