@@ -202,7 +202,7 @@ class MaskToContentBlocksCommand extends Command
                 unset($field['nullable']);
             }
             if (($fieldType === FieldType::SELECT || $fieldType === FieldType::CHECK) && ($tca['items'] ?? []) === []) {
-                unset($tca['items']);
+                unset($field['items']);
             }
             if ($fieldType->isParentField()) {
                 $inlineFields = $this->tableDefinitionCollection->loadInlineFields($fieldKey, $element->key, $element);
