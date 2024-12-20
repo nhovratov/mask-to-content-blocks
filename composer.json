@@ -35,6 +35,7 @@
     },
     "require-dev": {
         "typo3/cms-install": "^13.4",
-        "typo3/cms-rte-ckeditor": "^13.4"
+        "typo3/cms-rte-ckeditor": "^13.4",
+        "typo3/cms-lowlevel": "^13.4"
     }
 }
