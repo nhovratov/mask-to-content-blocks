@@ -233,7 +233,7 @@ class MaskToContentBlocksCommand extends Command
                     'tx_mask_content_role' => $fieldKey,
                 ];
                 if (!empty($tcaFieldDefinition->cTypes)) {
-                    $field['overrideChildTca']['columns']['CType']['config']['default'] = reset($tcaFieldDefinition->cTypes);
+                    $field['allowedRecordTypes'] = $tcaFieldDefinition->cTypes;
                 }
                 unset($field['overrideChildTca']['columns']['colPos']);
             }
