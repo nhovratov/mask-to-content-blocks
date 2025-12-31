@@ -11,6 +11,7 @@ use MASK\Mask\Enumeration\FieldType;
 use MASK\Mask\Imaging\PreviewIconResolver;
 use MASK\Mask\Utility\AffixUtility;
 use MASK\Mask\Utility\TemplatePathUtility;
+use NH\MaskToContentBlocks\Service\SvgIconService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -41,6 +42,7 @@ class MaskToContentBlocksCommand extends Command
          * @var array{content?: string, backend?: string}
          */
         protected array $maskExtensionConfiguration,
+        protected SvgIconService $svgIconService,
     ) {
         parent::__construct();
     }
@@ -90,7 +92,7 @@ class MaskToContentBlocksCommand extends Command
             $contentBlockPath = $path . '/' . $contentBlockName;
             $this->copyFrontendTemplate($element->key, $contentBlockPath);
             $this->copyPreviewTemplate($element->key, $contentBlockPath);
-            $this->copyIcon($element->key, $contentBlockPath);
+            $this->copyIcon($element, $contentBlockPath);
         }
         return Command::SUCCESS;
     }
@@ -133,13 +135,14 @@ class MaskToContentBlocksCommand extends Command
         }
     }
 
-    protected function copyIcon(string $contentElementKey, string $targetExtPath): void
+    protected function copyIcon(ElementDefinition $element, string $targetExtPath): void
     {
+        $contentElementKey = $element->key;
         $absolutePath = GeneralUtility::getFileAbsFileName($targetExtPath);
         $absoluteIconPath = $absolutePath . '/' . ContentBlockPathUtility::getIconPathWithoutFileExtension();
         $previewIconPath = $this->previewIconResolver->getPreviewIconPath($contentElementKey);
         if ($previewIconPath === '') {
-            return;
+            $this->svgIconService->generateSvgIcon($contentElementKey, $element->color, $absoluteIconPath . '.svg');
         }
         $fileExtensionParts = explode('.', $previewIconPath);
         $fileExtension = end($fileExtensionParts);
