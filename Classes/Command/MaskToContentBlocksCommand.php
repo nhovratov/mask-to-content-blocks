@@ -137,12 +137,22 @@ class MaskToContentBlocksCommand extends Command
 
     protected function copyIcon(ElementDefinition $element, string $targetExtPath): void
     {
-        $contentElementKey = $element->key;
         $absolutePath = GeneralUtility::getFileAbsFileName($targetExtPath);
         $absoluteIconPath = $absolutePath . '/' . ContentBlockPathUtility::getIconPathWithoutFileExtension();
-        $previewIconPath = $this->previewIconResolver->getPreviewIconPath($contentElementKey);
+        $previewIconPath = $this->previewIconResolver->getPreviewIconPath($element->key);
         if ($previewIconPath === '') {
-            $this->svgIconService->generateSvgIcon($contentElementKey, $element->color, $absoluteIconPath . '.svg');
+            try {
+                $svgIcon = $this->svgIconService->generateSvgIcon($element->key, $element->color);
+            } catch (\InvalidArgumentException) {
+                return;
+            }
+            $iconFileName = $absoluteIconPath . '.svg';
+            $directory = dirname($iconFileName);
+            if (!is_dir($directory) && !GeneralUtility::mkdir($directory)) {
+                throw new \RuntimeException('Could not create directory ' . $directory, 1767375568);
+            }
+            file_put_contents($iconFileName, $svgIcon);
+            return;
         }
         $fileExtensionParts = explode('.', $previewIconPath);
         $fileExtension = end($fileExtensionParts);
