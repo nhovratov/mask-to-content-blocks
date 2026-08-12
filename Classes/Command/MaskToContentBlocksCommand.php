@@ -34,6 +34,24 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 ])]
 class MaskToContentBlocksCommand extends Command
 {
+    private const BOOLEAN_CONFIG_KEYS = [
+        'required', 'readOnly', 'nullable', 'exclude', 'autocomplete', 'hashed', 'multiple',
+        'enableRichtext', 'enableTabulator', 'fixedFont', 'enableCodeEditor', 'enableCopyToClipboard',
+        'opacity', 'disableAgeDisplay', 'allowNonIdValues', 'disableNoMatchingValueElement',
+        'localizeReferencesAtParentLocalization', 'invertStateDisplay', 'expandAll', 'showHeader',
+        'collapseAll', 'expandSingle', 'useSortable', 'showPossibleLocalizationRecords',
+        'showAllLocalizationLink', 'showSynchronizationLink', 'enableBrowser', 'fileUploadAllowed',
+        'fileByUrlAllowed', 'elementBrowserEnabled', 'edit', 'info', 'dragdrop', 'sort', 'hide',
+        'delete', 'localize', 'new', 'allowLanguageSynchronization', 'disableMovingChildrenWithParent',
+        'enableCascadingDelete', 'disabled', 'hideDeleteIcon', 'hideMoveIcons', 'hideSuggest',
+        'prepend_tname', 'prependSlash', 'prefixParentPageSlug', 'searchWholePhrase',
+    ];
+
+    private const INTEGER_CONFIG_KEYS = [
+        'min', 'max', 'size', 'minitems', 'maxitems', 'rows', 'cols', 'autoSizeMax',
+        'dbFieldLength', 'depth', 'maxLevels', 'maximumRecordsChecked', 'maximumRecordsCheckedInPid',
+    ];
+
     public function __construct(
         protected TableDefinitionCollection $tableDefinitionCollection,
         protected PreviewIconResolver $previewIconResolver,
@@ -225,8 +243,9 @@ class MaskToContentBlocksCommand extends Command
                 $columnsOverrides = $columnsOverrideTcaDefinition->realTca['config'] ?? [];
             }
             $field = array_merge($field, $tca, $columnsOverrides);
+            $field = $this->normalizeConfigTypes($field);
             // Cleanup
-            if (($field['nullable'] ?? null) === 0) {
+            if (($field['nullable'] ?? null) === false) {
                 unset($field['nullable']);
             }
             if (($fieldType === FieldType::SELECT || $fieldType === FieldType::CHECK) && ($field['items'] ?? []) === []) {
@@ -269,5 +288,36 @@ class MaskToContentBlocksCommand extends Command
             $fieldArray[] = $field;
         }
         return $fieldArray;
+    }
+
+    /**
+     * Mask's raw TCA config stores booleans as int/string (0/1, '0'/'1') and leaves
+     * unconfigured integer fields (e.g. minitems) as an empty string. The Content
+     * Blocks schema requires real YAML booleans/integers, so normalize known keys
+     * recursively before the config is dumped to YAML.
+     *
+     * @param array<string, mixed> $field
+     * @return array<string, mixed>
+     */
+    protected function normalizeConfigTypes(array $field): array
+    {
+        foreach ($field as $key => $value) {
+            if (is_array($value)) {
+                $field[$key] = $this->normalizeConfigTypes($value);
+                continue;
+            }
+            if (in_array($key, self::BOOLEAN_CONFIG_KEYS, true)) {
+                $field[$key] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                continue;
+            }
+            if (in_array($key, self::INTEGER_CONFIG_KEYS, true)) {
+                if ($value === '') {
+                    unset($field[$key]);
+                } elseif (is_numeric($value)) {
+                    $field[$key] = (int)$value;
+                }
+            }
+        }
+        return $field;
     }
 }
