@@ -40,7 +40,7 @@ class MaskToContentBlocksCommand extends Command
         'opacity', 'disableAgeDisplay', 'allowNonIdValues', 'disableNoMatchingValueElement',
         'localizeReferencesAtParentLocalization', 'invertStateDisplay', 'expandAll', 'showHeader',
         'collapseAll', 'expandSingle', 'useSortable', 'showPossibleLocalizationRecords',
-        'showAllLocalizationLink', 'showSynchronizationLink', 'enableBrowser', 'fileUploadAllowed',
+        'showAllLocalizationLink', 'showSynchronizationLink', 'showNewRecordLink', 'enableBrowser', 'fileUploadAllowed',
         'fileByUrlAllowed', 'elementBrowserEnabled', 'edit', 'info', 'dragdrop', 'sort', 'hide',
         'delete', 'localize', 'new', 'allowLanguageSynchronization', 'disableMovingChildrenWithParent',
         'enableCascadingDelete', 'disabled', 'hideDeleteIcon', 'hideMoveIcons', 'hideSuggest',
@@ -311,7 +311,7 @@ class MaskToContentBlocksCommand extends Command
                 continue;
             }
             if (in_array($key, self::INTEGER_CONFIG_KEYS, true)) {
-                if ($value === '') {
+                if ($value === '' || $value === null) {
                     unset($field[$key]);
                 } elseif (is_numeric($value)) {
                     $field[$key] = (int)$value;
